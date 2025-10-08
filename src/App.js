@@ -1,92 +1,135 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
-import './App.css';
-
+import React, { useState, useEffect } from "react";
+import "./App.css";
 
 function App() {
-  const [tasks, setTasks] = useState([]);
-  const [text, setText] = useState("");
+  const [todos, setTodos] = useState([]);
+  const [input, setInput] = useState("");
+  const [priority, setPriority] = useState("Medium");
+  const [dueDate, setDueDate] = useState("");
+  const [filter, setFilter] = useState("All");
 
-  const BASE_URL = "http://127.0.0.1:5001";
-
-  // Fetch all tasks
+  // Load todos from localStorage
   useEffect(() => {
-    axios.get(`${BASE_URL}/tasks`)
-      .then(res => setTasks(res.data))
-      .catch(err => console.error(err));
+    const savedTodos = JSON.parse(localStorage.getItem("todos")) || [];
+    setTodos(savedTodos);
   }, []);
 
-  // Add new task
-  const addTask = () => {
-    if (!text.trim()) return;
-    axios.post(`${BASE_URL}/tasks`, { text })
-      .then(res => setTasks([...tasks, res.data]))
-      .catch(err => console.error(err));
-    setText("");
+  // Save todos to localStorage
+  useEffect(() => {
+    localStorage.setItem("todos", JSON.stringify(todos));
+  }, [todos]);
+
+  // Add new todo
+  const addTodo = () => {
+    if (!input.trim()) return;
+    const newTodo = {
+      id: Date.now(),
+      text: input,
+      completed: false,
+      priority: priority,
+      dueDate: dueDate,
+    };
+    setTodos([...todos, newTodo]);
+    setInput("");
+    setDueDate("");
+    setPriority("Medium");
   };
 
-  // Toggle completion
-  const toggleTask = (id) => {
-    axios.put(`${BASE_URL}/tasks/${id}`)
-      .then(res => setTasks(tasks.map(t => (t.id === id ? res.data : t))))
-      .catch(err => console.error(err));
+  // Delete todo
+  const deleteTodo = (id) => {
+    setTodos(todos.filter((todo) => todo.id !== id));
   };
 
-  // Delete task
-  const deleteTask = (id) => {
-    axios.delete(`${BASE_URL}/tasks/${id}`)
-      .then(() => setTasks(tasks.filter(t => t.id !== id)))
-      .catch(err => console.error(err));
+  // Toggle complete
+  const toggleTodo = (id) => {
+    setTodos(
+      todos.map((todo) =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    );
   };
-  // Mark all tasks as complete
-const markAllComplete = () => {
-  const updatedTasks = tasks.map(t => ({ ...t, completed: true }));
-  setTasks(updatedTasks);
-};
 
-// Clear all completed tasks
-const clearCompleted = () => {
-  const remainingTasks = tasks.filter(t => !t.completed);
-  setTasks(remainingTasks);
-};
+  // Edit todo
+  const editTodo = (id) => {
+    const todo = todos.find((t) => t.id === id);
+    const newText = prompt("Edit your task:", todo.text);
+    if (newText) {
+      setTodos(
+        todos.map((t) => (t.id === id ? { ...t, text: newText } : t))
+      );
+    }
+  };
 
+  // Filtered todos
+  const filteredTodos = todos.filter((todo) => {
+    if (filter === "All") return true;
+    if (filter === "Completed") return todo.completed;
+    if (filter === "Pending") return !todo.completed;
+    return true;
+  });
+
+  // Today's date
+  const today = new Date().toISOString().split("T")[0];
 
   return (
-    <div style={{ textAlign: "center", marginTop: "50px" }}>
-      <h1>📝 To-Do App</h1>
+    <div className="app">
+      <h1>My To-Do App</h1>
 
-      <input
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Enter a task"
-        style={{ padding: "8px", width: "250px" }}
-      />
-      <button onClick={addTask} style={{ marginLeft: "10px", padding: "8px 15px" }}>
-        Add
-      </button>
-      <div style={{ marginTop: "20px", fontWeight: "bold", color: "#ff6b6b" }}>
-  Pending Tasks: {tasks.filter(t => !t.completed).length}
-</div>
+      {/* Input Section */}
+      <div className="input-container">
+        <input
+          type="text"
+          placeholder="Add a new task"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+        />
+        <select
+          value={priority}
+          onChange={(e) => setPriority(e.target.value)}
+        >
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+        />
+        <button onClick={addTodo}>Add</button>
+      </div>
 
-      <div style={{ marginTop: "20px" }}>
-  <button onClick={markAllComplete} style={{ marginRight: "10px", padding: "8px 15px" }}>
-    Mark All Complete
-  </button>
-  <button onClick={clearCompleted} style={{ padding: "8px 15px" }}>
-    Clear Completed
-  </button>
-</div>
+      {/* Filter Buttons */}
+      <div className="filter-container">
+        <button onClick={() => setFilter("All")}>All</button>
+        <button onClick={() => setFilter("Completed")}>Completed</button>
+        <button onClick={() => setFilter("Pending")}>Pending</button>
+      </div>
 
-
-      <ul style={{ listStyle: "none", padding: 0, marginTop: "30px" }}>
-        {tasks.map((t) => (
-          <li key={t.id} className={t.completed ? "task completed" : "task"}>
-  <span onClick={() => toggleTask(t.id)}>
-    {t.text}
-  </span>
-  <button onClick={() => deleteTask(t.id)}>❌</button>
-</li>
-
+      {/* Todo List */}
+      <ul className="todo-list">
+        {filteredTodos.map((todo) => (
+          <li
+            key={todo.id}
+            className={todo.completed ? "completed" : ""}
+            data-priority={todo.priority}
+          >
+            <span
+              onClick={() => toggleTodo(todo.id)}
+              style={{
+                color: todo.dueDate === today ? "#ff4d6d" : "inherit",
+              }}
+            >
+              {todo.text}{" "}
+              {todo.dueDate && (
+                <span className="due-date">({todo.dueDate})</span>
+              )}
+            </span>
+            <div className="actions">
+              <button onClick={() => editTodo(todo.id)}>Edit</button>
+              <button onClick={() => deleteTodo(todo.id)}>Delete</button>
+            </div>
+          </li>
         ))}
       </ul>
     </div>
